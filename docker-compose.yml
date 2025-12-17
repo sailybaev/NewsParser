@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  news-aggregator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kz-news-aggregator
+    restart: unless-stopped
+    volumes:
+      # Mount data directory for persistent storage
+      - ./data:/app/data
+    environment:
+      # You can override these if needed
+      - PYTHONUNBUFFERED=1
+    command: python scheduler.py 30
+    # For development: override command to run one-time fetch
+    # command: python aggregator.py fetch
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; exit(0 if os.path.exists('/app/data/news.json') else 1)"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+    networks:
+      - news-aggregator-network
+
+networks:
+  news-aggregator-network:
+    driver: bridge
+
+volumes:
+  # Named volume as alternative to bind mount
+  news-data:
