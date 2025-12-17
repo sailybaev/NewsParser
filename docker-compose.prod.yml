@@ -12,8 +12,10 @@ services:
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
-      # Set to production API URL if needed
-      # - API_BASE_URL=https://soft09.tech
+      # Backend API configuration
+      - API_BASE_URL=${API_BASE_URL:-https://soft09.tech}
+      - API_SUBMIT_ENDPOINT=${API_SUBMIT_ENDPOINT:-/api/v2/parser/news/submit}
+      - SEND_TO_API=${SEND_TO_API:-true}
     # Fetch news every 20 hours (1200 minutes)
     command: python scheduler.py 1200
     healthcheck:

@@ -1,4 +1,5 @@
 # Configuration for News Aggregator
+import os
 
 # News sources to scrape
 SOURCES = [
@@ -167,6 +168,6 @@ NEWS_FILE = "news.json"
 SEEN_URLS_FILE = "seen_urls.json"
 
 # Backend API settings
-API_BASE_URL = "http://localhost:8000"  # Change to production URL when deploying
-API_SUBMIT_ENDPOINT = "/api/v2/parser/news/submit"
-SEND_TO_API = True  # Set to False to disable API submission and use JSON only
+API_BASE_URL = os.getenv("API_BASE_URL", "https://soft09.tech")
+API_SUBMIT_ENDPOINT = os.getenv("API_SUBMIT_ENDPOINT", "/api/v2/parser/news/submit")
+SEND_TO_API = os.getenv("SEND_TO_API", "true").lower() in ("true", "1", "yes")
