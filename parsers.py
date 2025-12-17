@@ -42,25 +42,32 @@ class BaseParser:
     def extract_with_trafilatura(self, html: str, url: str) -> Dict:
         """Use trafilatura for generic article extraction"""
         try:
-            result = trafilatura.extract(
-                html,
-                url=url,
-                include_comments=False,
-                include_tables=False,
-                no_fallback=False,
-                favor_precision=True,
-                output_format='dict'
-            )
-            if result and isinstance(result, dict):
+            # Try to extract metadata separately
+            metadata = trafilatura.extract_metadata(html, default_url=url)
+            text_content = trafilatura.extract(html, url=url, include_comments=False, include_tables=False)
+            
+            if text_content or metadata:
+                title = metadata.title if metadata and metadata.title else ''
+                description = metadata.description if metadata and metadata.description else ''
+                date = metadata.date if metadata and metadata.date else ''
+                
+                # Fallback: try to get title from HTML if missing
+                if not title and html:
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(html, 'lxml')
+                    title_tag = soup.find('title') or soup.find('h1')
+                    if title_tag:
+                        title = title_tag.get_text().strip()
+                
                 return {
-                    'title': result.get('title', ''),
-                    'description': result.get('description', '') or (result.get('text', '')[:200] + '...' if result.get('text') else ''),
-                    'content': result.get('text', ''),
-                    'date': result.get('date', ''),
-                    'image': result.get('image', ''),
+                    'title': title,
+                    'description': description or (text_content[:200] + '...' if text_content else ''),
+                    'content': text_content or '',
+                    'date': date,
+                    'image': '',
                 }
         except Exception as e:
-            print(f"Trafilatura error: {e}")
+            print(f"Trafilatura error for {url[:50]}: {e}")
         return {}
     
     def find_article_links(self, html: str, base_url: str, patterns: List[str] = None) -> List[str]:

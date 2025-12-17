@@ -158,19 +158,34 @@ class NewsAggregator:
                 "photo_url": article.photo_url
             }
 
+            # Log the attempt to send to backend
+            print(f"  📤 Sending to backend API: {url}")
+            print(f"     Title: {article.title[:60]}...")
+            print(f"     Source: {article.source_name}")
+            print(f"     Category: {article.category} | Language: {article.language}")
+            
             response = await client.post(url, json=payload, timeout=10.0)
 
             if response.status_code == 201:
+                print(f"  ✅ Successfully sent to backend (Status: 201 Created)")
                 return True
             elif response.status_code == 409:
-                print(f"  ℹ Article already exists in backend")
+                print(f"  ℹ️  Article already exists in backend (Status: 409 Conflict)")
                 return False
             else:
-                print(f"  ⚠ API returned status {response.status_code}: {response.text}")
+                print(f"  ⚠️  Backend returned status {response.status_code}")
+                print(f"     Response: {response.text[:150]}")
                 return False
 
+        except httpx.ConnectError as e:
+            print(f"  ❌ Connection error sending to API: Cannot reach {API_BASE_URL}")
+            print(f"     Error: {e}")
+            return False
+        except httpx.TimeoutException:
+            print(f"  ❌ Timeout sending to API: Backend did not respond within 10 seconds")
+            return False
         except Exception as e:
-            print(f"  ✗ Error sending to API: {e}")
+            print(f"  ❌ Unexpected error sending to API: {type(e).__name__}: {e}")
             return False
 
     async def fetch_source(self, source: dict, client: httpx.AsyncClient) -> List[NewsArticle]:
@@ -201,12 +216,14 @@ class NewsAggregator:
                 try:
                     data = await parser.parse_article(url, client)
                     if not data:
+                        print(f"  ⚠️  Failed to parse: {url}")
                         continue
                     
                     title = data.get('title', '')
                     content = data.get('content', '')
                     
                     if not title:
+                        print(f"  ⚠️  No title found: {url}")
                         continue
                     
                     # Combine text for keyword matching
@@ -215,10 +232,12 @@ class NewsAggregator:
                     # Match keywords
                     matched_keywords = self.match_keywords(full_text)
                     
-                    # Only include if keywords match
+                    # TEMPORARY: Accept all articles for testing (remove keyword filter)
                     if not matched_keywords:
-                        self.seen_urls.mark_seen(url)
-                        continue
+                        matched_keywords = ["test"]  # Add dummy keyword for testing
+                        print(f"  ⚠️  No keywords matched, accepting anyway (TEST MODE): {title[:60]}...")
+                    else:
+                        print(f"  ✨ Keywords matched: {', '.join(matched_keywords[:3])}...")
                     
                     # Detect language
                     lang = self.detect_language(full_text) or source_lang
@@ -267,11 +286,13 @@ class NewsAggregator:
                         article.content_text_ru = content
                     
                     # Send to API if enabled
-                    api_success = await self.send_to_api(article, client)
-                    if api_success:
-                        print(f"  ✓ {title[:50]}... [{category}] ({len(matched_keywords)} keywords) → API")
+                    if SEND_TO_API:
+                        print(f"\n  📝 Article processed: {title[:60]}...")
+                        print(f"     Category: [{category}] | Keywords: {len(matched_keywords)} | Language: {lang}")
+                        api_success = await self.send_to_api(article, client)
                     else:
-                        print(f"  ✓ {title[:50]}... [{category}] ({len(matched_keywords)} keywords) → JSON only")
+                        api_success = False
+                        print(f"  ✓ {title[:50]}... [{category}] ({len(matched_keywords)} keywords) → JSON only (API disabled)")
 
                     # Always save to JSON as backup
                     articles.append(article)
