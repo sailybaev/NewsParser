@@ -1,214 +1,253 @@
 # Kazakhstan Youth News Aggregator
 
-Автоматический сервис сбора новостей с казахстанских сайтов для Қарағанды облысы.
+Automated service for collecting news from Kazakh news websites, specifically targeting content relevant to youth in Қарағанды облысы (Karaganda Region).
 
-## Возможности
+## Quick Start
 
-- 🔍 Сбор новостей с 18 источников
-- 🏷️ Фильтрация по ключевым словам (казахский и русский)
-- 📂 Автоматическая категоризация
-- 🌐 Определение языка (қазақша/русский)
-- 💾 Хранение в JSON для модерации
-- ⏰ Планировщик для автоматического сбора
-- 📤 Экспорт в формат CRM
-
-## Источники новостей
-
-| Источник | URL | Язык |
-|----------|-----|------|
-| Stan.kz | stan.kz | 🇰🇿 |
-| Baq.kz | baq.kz | 🇰🇿 |
-| InformBuro | informburo.kz | 🇷🇺 |
-| QazSport TV | qazsporttv.kz | 🇰🇿 |
-| Orda.kz | orda.kz | 🇷🇺 |
-| Sputnik KZ | ru.sputnik.kz | 🇷🇺 |
-| 24.kz | 24.kz | 🇰🇿 |
-| Zakon.kz | kaz.zakon.kz | 🇰🇿 |
-| И другие... | | |
-
-## Установка
+### Development
 
 ```bash
-# Клонировать или скопировать проект
-cd news_aggregator
+# Using Docker (recommended)
+docker-compose up -d
+docker-compose logs -f
 
-# Создать виртуальное окружение (рекомендуется)
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# или
-venv\Scripts\activate  # Windows
-
-# Установить зависимости
-pip install -r requirements.txt
+# Using Python virtual environment
+source .venv/bin/activate
+python scheduler.py
 ```
 
-## Использование
-
-### Разовый сбор новостей
+### Production
 
 ```bash
-# Собрать со всех источников
+# Deploy with 20-hour fetch interval
+docker-compose -f docker-compose.prod.yml up -d
+
+# View logs
+docker-compose -f docker-compose.prod.yml logs -f
+
+# Stop service
+docker-compose -f docker-compose.prod.yml down
+
+# Restart after updates
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+## Production Deployment
+
+The production configuration (`docker-compose.prod.yml`) is optimized for:
+- **20-hour fetch interval** (1200 minutes) - reduces server load and respects source websites
+- **Automatic restart** - ensures service resilience
+- **Log rotation** - prevents disk space issues (max 10MB per file, 3 files)
+- **Health monitoring** - automatic health checks every hour
+
+### Custom Fetch Interval
+
+To change the fetch interval in production:
+
+**Option 1: Edit docker-compose.prod.yml**
+```yaml
+command: python scheduler.py <MINUTES>
+```
+Examples:
+- 12 hours: `command: python scheduler.py 720`
+- 24 hours: `command: python scheduler.py 1440`
+- 6 hours: `command: python scheduler.py 360`
+
+**Option 2: Override command at runtime**
+```bash
+docker-compose -f docker-compose.prod.yml run -d \
+  --name kz-news-aggregator-prod \
+  news-aggregator python scheduler.py 720
+```
+
+### Manual Operations in Production
+
+```bash
+# Run one-time fetch
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator python aggregator.py fetch
+
+# Check pending articles
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator python aggregator.py pending
+
+# Approve/reject articles
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator python aggregator.py approve 123
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator python aggregator.py reject 456
+
+# View statistics
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator python aggregator.py stats
+
+# Export approved articles
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator python aggregator.py export-crm
+
+# Access container shell
+docker-compose -f docker-compose.prod.yml exec news-aggregator /bin/bash
+```
+
+## Available Commands
+
+### Development Commands
+
+```bash
+# Activate virtual environment first
+source .venv/bin/activate  # macOS/Linux
+# .venv\Scripts\activate  # Windows
+
+# Fetch news from all sources
 python aggregator.py fetch
 
-# Собрать с одного источника
+# Fetch from a single source
 python aggregator.py fetch-source "Stan.kz"
-```
 
-### Управление статьями
-
-```bash
-# Показать статьи на модерации
+# View pending articles
 python aggregator.py pending
 
-# Одобрить статью
+# Approve/reject articles by ID
 python aggregator.py approve 123
-
-# Отклонить статью
 python aggregator.py reject 123
 
-# Показать статистику
+# Show statistics
 python aggregator.py stats
-```
 
-### Экспорт для CRM
-
-```bash
-# Экспортировать одобренные статьи
+# Export approved articles for CRM
 python aggregator.py export-crm
+
+# Run scheduler
+python scheduler.py              # default 30-minute interval
+python scheduler.py 1200         # 20-hour interval
 ```
 
-### Автоматический сбор
+### Docker Commands
 
 ```bash
-# Запустить планировщик (по умолчанию каждые 30 минут)
-python scheduler.py
+# Development (30-minute interval)
+docker-compose up -d
+docker-compose logs -f
+docker-compose down
 
-# Указать интервал в минутах
-python scheduler.py 60  # каждый час
+# Production (20-hour interval)
+docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.prod.yml logs -f
+docker-compose -f docker-compose.prod.yml down
+
+# Rebuild after code changes
+docker-compose -f docker-compose.prod.yml up -d --build
+
+# Run commands inside container
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator <command>
 ```
 
-## Структура данных
+## Configuration
 
-### Модель новости (news.json)
+### Fetch Interval
 
-```json
-{
-  "articles": [
-    {
-      "id": 1,
-      "title": "Заголовок",
-      "description": "Краткое описание",
-      "content_text": "Полный текст статьи",
-      "title_kz": "Қазақша тақырып",
-      "description_kz": "Қазақша сипаттама",
-      "content_text_kz": "Қазақша мәтін",
-      "title_ru": "Русский заголовок",
-      "description_ru": "Русское описание",
-      "content_text_ru": "Русский текст",
-      "photo_url": "https://...",
-      "category": "education",
-      "date": "2025-01-15T10:30:00",
-      "source_url": "https://stan.kz/article/...",
-      "source_name": "Stan.kz",
-      "language": "kz",
-      "matched_keywords": ["грант", "студент", "университет"],
-      "status": "pending",
-      "fetched_at": "2025-01-15T10:35:00"
-    }
-  ],
-  "next_id": 2,
-  "last_updated": "2025-01-15T10:35:00"
-}
+The scheduler accepts an interval in minutes:
+- **Development**: 30 minutes (default in `docker-compose.yml`)
+- **Production**: 1200 minutes / 20 hours (in `docker-compose.prod.yml`)
+
+### News Sources
+
+Configured in `config.py` - currently fetching from 18 Kazakh news sources including:
+- Stan.kz, Baq.kz, InformBuro, QazSport TV
+- Ministry of Health, Test Center, QazTourism
+- Orda.kz, Sputnik KZ, Akorda, Azattyq
+- And more...
+
+### Keywords & Categories
+
+The system filters articles using 60-80 keywords in Kazakh and Russian, categorizing them into:
+- Education, Employment, Business, Finance
+- Sports, Culture, Tourism, Social
+- IT, Health, Regional news
+
+## Data Persistence
+
+All data is stored in the `./data` directory which is mounted as a Docker volume:
+- `data/news.json` - All fetched articles
+- `data/seen_urls.json` - Processed URL tracking
+- `data/crm_export.json` - CRM export file
+
+This directory persists even when containers are removed.
+
+## Monitoring
+
+### Check Service Status
+
+```bash
+# Docker status
+docker-compose -f docker-compose.prod.yml ps
+
+# Container health
+docker inspect --format='{{.State.Health.Status}}' kz-news-aggregator-prod
+
+# Recent logs
+docker-compose -f docker-compose.prod.yml logs --tail=100
 ```
 
-### Категории
+### Health Checks
 
-| Категория | Ключевые слова |
-|-----------|----------------|
-| education | студент, колледж, университет, грант |
-| employment | жұмыс, работа, трудоустройство |
-| business | бизнес, кәсіпкер, стартап |
-| finance | кредит, депозит, ақша |
-| sports | спорт, футбол, волейбол |
-| culture | театр, кино, концерт |
-| tourism | туризм, демалыс |
-| social | волонтер, благотворительн |
-| it | IT, хакатон |
-| health | денсаулық, здоровье |
-| regional | Қарағанды, Караганд |
+The production setup includes automatic health checks:
+- Runs every hour
+- Verifies that `news.json` file exists
+- Automatically restarts if unhealthy after 3 retries
 
-## Конфигурация
+## Troubleshooting
 
-Редактируйте `config.py` для настройки:
+### Service not starting
 
-- `SOURCES` - список источников
-- `KEYWORDS_KZ` - ключевые слова на казахском
-- `KEYWORDS_RU` - ключевые слова на русском
-- `CATEGORY_MAPPING` - правила категоризации
-- `FETCH_TIMEOUT` - таймаут запросов (сек)
-- `MAX_ARTICLES_PER_SOURCE` - лимит статей с источника
+```bash
+# Check logs for errors
+docker-compose -f docker-compose.prod.yml logs
 
-## Структура проекта
-
-```
-news_aggregator/
-├── aggregator.py      # Основной сервис
-├── config.py          # Конфигурация
-├── models.py          # Модели данных
-├── parsers.py         # Парсеры сайтов
-├── scheduler.py       # Планировщик
-├── requirements.txt   # Зависимости
-├── README.md          # Документация
-└── data/              # Данные
-    ├── news.json      # Собранные новости
-    ├── seen_urls.json # Обработанные URL
-    └── crm_export.json# Экспорт для CRM
+# Rebuild image
+docker-compose -f docker-compose.prod.yml up -d --build --force-recreate
 ```
 
-## Интеграция с CRM
+### No articles being fetched
 
-Когда будете готовы интегрировать с CRM:
+```bash
+# Run manual fetch to see errors
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator python aggregator.py fetch
 
-1. Используйте `aggregator.get_approved_for_crm()` для получения статей
-2. Или экспортируйте через `python aggregator.py export-crm`
-3. Отправьте на ваш CRM API endpoint
-
-Пример интеграции:
-
-```python
-import httpx
-from aggregator import NewsAggregator
-
-aggregator = NewsAggregator()
-articles = aggregator.get_approved_for_crm()
-
-async with httpx.AsyncClient() as client:
-    for article in articles:
-        response = await client.post(
-            "https://your-crm.com/api/news",
-            json=article,
-            headers={"Authorization": "Bearer YOUR_TOKEN"}
-        )
+# Check if data directory is writable
+docker-compose -f docker-compose.prod.yml exec news-aggregator ls -la /app/data
 ```
 
-## Добавление нового источника
+### Clear and restart
 
-1. Добавьте в `SOURCES` в `config.py`:
-```python
-{"name": "NewSource", "url": "https://newsource.kz/", "lang": "kz"},
+```bash
+# Stop and remove container
+docker-compose -f docker-compose.prod.yml down
+
+# Optional: Clear data (WARNING: deletes all fetched news)
+# rm -rf data/*
+
+# Restart
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
-2. (Опционально) Создайте специфичный парсер в `parsers.py`:
-```python
-class NewSourceParser(BaseParser):
-    async def get_article_links(self, client):
-        # Ваша логика
-        pass
+## Tech Stack
+
+- **Python**: 3.9
+- **HTTP Client**: httpx (async)
+- **Web Scraping**: trafilatura, BeautifulSoup4
+- **Scheduling**: APScheduler
+- **Storage**: JSON files
+- **Containerization**: Docker, Docker Compose
+
+## Adding New Sources
+
+1. Edit `config.py` and add to SOURCES list
+2. (Optional) Create custom parser in `parsers.py`
+3. Test: `python aggregator.py fetch-source "NewSourceName"`
+4. Rebuild Docker image if in production
+
+## Integration with CRM
+
+Approved articles can be exported in CRM format:
+
+```bash
+# Export to data/crm_export.json
+docker-compose -f docker-compose.prod.yml run --rm news-aggregator python aggregator.py export-crm
 ```
 
-3. Зарегистрируйте в `get_parser()` в `parsers.py`
-
-## Лицензия
-
-MIT
-# NewsParser
+The CRM system can then import this file via the Tabys API endpoint configured in `config.py`.

@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  news-aggregator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kz-news-aggregator-prod
+    restart: always
+    volumes:
+      # Mount data directory for persistent storage
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Set to production API URL if needed
+      # - API_BASE_URL=https://soft09.tech
+    # Fetch news every 20 hours (1200 minutes)
+    command: python scheduler.py 1200
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; exit(0 if os.path.exists('/app/data/news.json') else 1)"]
+      interval: 1h
+      timeout: 10s
+      retries: 3
+      start_period: 5m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - news-aggregator-network
+
+networks:
+  news-aggregator-network:
+    driver: bridge
