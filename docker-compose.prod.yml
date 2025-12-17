@@ -8,15 +8,12 @@ services:
     container_name: kz-news-aggregator-prod
     restart: always
     volumes:
-      # Mount data directory for persistent storage
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
-      # Backend API configuration
-      - API_BASE_URL=${API_BASE_URL:-https://soft09.tech}
-      - API_SUBMIT_ENDPOINT=${API_SUBMIT_ENDPOINT:-/api/v2/parser/news/submit}
-      - SEND_TO_API=${SEND_TO_API:-true}
-    # Fetch news every 20 hours (1200 minutes)
+      - API_BASE_URL=http://tabys-api-1:8000
+      - API_SUBMIT_ENDPOINT=/api/v2/parser/news/submit
+      - SEND_TO_API=true
     command: python scheduler.py 1200
     healthcheck:
       test: ["CMD", "python", "-c", "import os; exit(0 if os.path.exists('/app/data/news.json') else 1)"]
@@ -30,8 +27,9 @@ services:
         max-size: "10m"
         max-file: "3"
     networks:
-      - news-aggregator-network
+      - tabys_default
 
 networks:
-  news-aggregator-network:
-    driver: bridge
+  tabys_default:
+    external: true
+
