@@ -232,12 +232,13 @@ class NewsAggregator:
                     # Match keywords
                     matched_keywords = self.match_keywords(full_text)
                     
-                    # TEMPORARY: Accept all articles for testing (remove keyword filter)
+                    # Only include if keywords match
                     if not matched_keywords:
-                        matched_keywords = ["test"]  # Add dummy keyword for testing
-                        print(f"  ⚠️  No keywords matched, accepting anyway (TEST MODE): {title[:60]}...")
-                    else:
-                        print(f"  ✨ Keywords matched: {', '.join(matched_keywords[:3])}...")
+                        print(f"  ⏭️  Skipping (no keyword match): {title[:80]}...")
+                        self.seen_urls.mark_seen(url)
+                        continue
+                    
+                    print(f"  ✨ Keywords matched: {', '.join(matched_keywords[:3])}...")
                     
                     # Detect language
                     lang = self.detect_language(full_text) or source_lang

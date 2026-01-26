@@ -168,6 +168,6 @@ NEWS_FILE = "news.json"
 SEEN_URLS_FILE = "seen_urls.json"
 
 # Backend API settings
-API_BASE_URL = os.getenv("API_BASE_URL", "https://soft09.tech")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.saryarqa-jastary.kz")
 API_SUBMIT_ENDPOINT = os.getenv("API_SUBMIT_ENDPOINT", "/api/v2/parser/news/submit")
 SEND_TO_API = os.getenv("SEND_TO_API", "true").lower() in ("true", "1", "yes")
